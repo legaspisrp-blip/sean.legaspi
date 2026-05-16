@@ -1,16 +1,60 @@
 // pages/contact.jsx
 function ContactPage({ setRoute }) {
-  const [form, setForm] = React.useState({ name: "", email: "", company: "", topic: "Operations", message: "" });
-  const [sent, setSent] = React.useState(false);
+  const [form, setForm] = React.useState({ name: "", email: "", company: "", topic: "Operations / SOPs", message: "" });
+  const [status, setStatus] = React.useState({ state: "idle", msg: "" });
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    setSent(true);
-    setTimeout(() => setSent(false), 6000);
-    setForm({ name: "", email: "", company: "", topic: "Operations", message: "" });
+    setStatus({ state: "sending", msg: "Sending…" });
+
+    try {
+      const res = await fetch("https://formsubmit.co/ajax/legaspi.srp@gmail.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          company: form.company,
+          topic: form.topic,
+          message: form.message,
+          _subject: `Portfolio message · ${form.topic} · from ${form.name}`,
+          _template: "table",
+          _captcha: "false",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && (data.success === "true" || data.success === true || res.status === 200)) {
+        setStatus({ state: "sent", msg: "Sent. Sean will reply within a working day, Manila time." });
+        setForm({ name: "", email: "", company: "", topic: "Operations / SOPs", message: "" });
+      } else {
+        throw new Error(data.message || "Submission failed");
+      }
+    } catch (err) {
+      setStatus({
+        state: "error",
+        msg: "Couldn't send through the form. Please email legaspi.srp@gmail.com directly.",
+      });
+    }
   };
 
   const onField = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const mailtoLink = () => {
+    const subj = `Portfolio message · ${form.topic || "General"}`;
+    const body = [
+      `Name: ${form.name}`,
+      `Email: ${form.email}`,
+      `Company: ${form.company}`,
+      `Topic: ${form.topic}`,
+      "",
+      form.message,
+    ].join("\n");
+    return `mailto:legaspi.srp@gmail.com?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+  };
 
   return (
     <div className="page-enter">
@@ -97,14 +141,29 @@ function ContactPage({ setRoute }) {
                 placeholder="A short description of what you're trying to ship or fix."
               />
             </div>
-            {sent ? (
+            {status.state === "sent" ? (
               <div className="form-success">
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }}></span>
-                <span>Sent. I'll reply within a working day, Manila time.</span>
+                <span>{status.msg}</span>
               </div>
+            ) : status.state === "error" ? (
+              <>
+                <div className="form-success" style={{ borderColor: "#b04a52", background: "color-mix(in oklab, #b04a52 8%, transparent)" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#b04a52" }}></span>
+                  <span>{status.msg}</span>
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <a className="btn btn-primary" href={mailtoLink()} style={{ alignSelf: "flex-start" }}>
+                    Open email instead <span className="arrow">→</span>
+                  </a>
+                  <button className="btn btn-ghost" type="button" onClick={() => setStatus({ state: "idle", msg: "" })}>
+                    Try again
+                  </button>
+                </div>
+              </>
             ) : (
-              <button className="btn btn-primary" type="submit" style={{ alignSelf: "flex-start" }}>
-                Send message <span className="arrow">→</span>
+              <button className="btn btn-primary" type="submit" style={{ alignSelf: "flex-start" }} disabled={status.state === "sending"}>
+                {status.state === "sending" ? "Sending…" : "Send message"} <span className="arrow">→</span>
               </button>
             )}
           </form>
